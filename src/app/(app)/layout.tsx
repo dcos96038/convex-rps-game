@@ -1,15 +1,32 @@
 import { AuthGuard } from '@/components/auth-guard';
 import { AuthModal } from '@/components/auth-modal';
-import { SignOutButton } from '@/components/sign-out-button';
 import { Button } from '@/components/ui/button';
 import { getCurrentUser } from '@/lib/get-current-user';
+import { preloadQuery } from 'convex/nextjs';
+import { api } from '../../../convex/_generated/api';
+
+import { Preloaded } from 'convex/react';
+import { UserBalance } from './user-balance.client';
+import { UserMenu } from './user-menu.client';
 
 export default async function Layout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const { isAuthenticated } = await getCurrentUser();
+  const { isAuthenticated, token, user } = await getCurrentUser();
+
+  let preloadedBalance: Preloaded<
+    typeof api.tokenTransactions.getUserBalance
+  > | null = null;
+
+  if (isAuthenticated && token) {
+    preloadedBalance = await preloadQuery(
+      api.tokenTransactions.getUserBalance,
+      {},
+      { token }
+    );
+  }
 
   return (
     <div className='container mx-auto'>
@@ -23,7 +40,13 @@ export default async function Layout({
             isAuthenticated={isAuthenticated}
             fallback={<AuthModal trigger={<Button>Login</Button>} />}
           >
-            <SignOutButton />
+            <div className='flex items-center gap-2'>
+              {preloadedBalance && (
+                <UserBalance preloadedBalance={preloadedBalance} />
+              )}
+
+              {user && <UserMenu user={user} />}
+            </div>
           </AuthGuard>
         </nav>
         <div className='flex-1 flex justify-center items-center'>

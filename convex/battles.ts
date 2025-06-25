@@ -3,6 +3,7 @@ import { internalMutation, mutation, query } from './_generated/server';
 import { getAuthUserId } from '@convex-dev/auth/server';
 import { Id } from './_generated/dataModel';
 import { internal } from './_generated/api';
+import { userBalanceAggregate } from './aggregates';
 
 export const getOpenBattles = query({
   args: {},
@@ -89,7 +90,16 @@ export const createBattle = mutation({
       throw new Error('Not authenticated');
     }
 
-    const battle = await ctx.db.insert('battles', {
+    const totalBalance = await userBalanceAggregate.sum(ctx, {
+      namespace: userId,
+      bounds: {},
+    });
+
+    if (totalBalance < args.amount) {
+      throw new Error('Insufficient balance');
+    }
+
+    const battleId = await ctx.db.insert('battles', {
       createdBy: userId,
       moveCreator: args.move,
       amount: args.amount,
@@ -97,8 +107,14 @@ export const createBattle = mutation({
       createdAt: Date.now(),
       gifUrl: args.gifUrl,
     });
+    await ctx.runMutation(internal.tokenTransactions.createTransaction, {
+      userId,
+      amount: args.amount,
+      type: 'expense',
+      battleId,
+    });
 
-    return battle;
+    return battleId;
   },
 });
 
@@ -117,6 +133,22 @@ export const joinBattle = mutation({
     if (!battle) {
       throw new Error('Battle not found');
     }
+
+    const totalBalance = await userBalanceAggregate.sum(ctx, {
+      namespace: userId,
+      bounds: {},
+    });
+
+    if (totalBalance < battle.amount) {
+      throw new Error('Insufficient balance');
+    }
+
+    await ctx.runMutation(internal.tokenTransactions.createTransaction, {
+      userId,
+      amount: battle.amount,
+      type: 'expense',
+      battleId: args.battleId,
+    });
 
     await ctx.db.patch(args.battleId, {
       joinerId: userId,
@@ -161,6 +193,22 @@ export const defineWinner = internalMutation({
       winnerId = null;
     } else {
       winnerId = battle.joinerId;
+    }
+
+    if (winnerId === battle.createdBy) {
+      await ctx.runMutation(internal.tokenTransactions.createTransaction, {
+        userId: battle.createdBy,
+        amount: battle.amount * 2,
+        type: 'income',
+        battleId: args.battleId,
+      });
+    } else if (winnerId === battle.joinerId) {
+      await ctx.runMutation(internal.tokenTransactions.createTransaction, {
+        userId: battle.joinerId,
+        amount: battle.amount * 2,
+        type: 'income',
+        battleId: args.battleId,
+      });
     }
 
     await ctx.db.patch(args.battleId, {

@@ -7,7 +7,7 @@ export default defineSchema({
 
   tokenTransactions: defineTable({
     userId: v.id('users'),
-    type: v.union(v.literal('claim'), v.literal('bet'), v.literal('win')),
+    type: v.union(v.literal('income'), v.literal('expense')),
     amount: v.number(),
     createdAt: v.number(),
     battleId: v.optional(v.id('battles')),

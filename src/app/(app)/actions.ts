@@ -54,3 +54,15 @@ export const challengeBattle = actionClient
 
     return battle;
   });
+
+export const addTokens = actionClient
+  .inputSchema(z.object({ amount: z.number() }))
+  .action(async ({ parsedInput: { amount } }) => {
+    const transaction = await fetchMutation(
+      api.tokenTransactions.createUserTransaction,
+      { amount, type: 'income' },
+      { token: await convexAuthNextjsToken() }
+    );
+
+    return transaction;
+  });
