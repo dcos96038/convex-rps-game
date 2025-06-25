@@ -43,16 +43,15 @@ export const RegisterForm = ({ onSuccess }: RegisterFormProps) => {
           <Label htmlFor='email'>Email</Label>
           <Input
             id='email'
+            name='email'
             type='email'
             placeholder='my-email@example.com'
             required
           />
         </div>
         <div className='grid gap-2'>
-          <div className='flex items-center'>
-            <Label htmlFor='password'>Password</Label>
-          </div>
-          <Input id='password' type='password' required />
+          <Label htmlFor='password'>Password</Label>
+          <Input id='password' name='password' type='password' required />
         </div>
       </div>
       <Button type='submit' className='w-full' disabled={loading}>
