@@ -7,6 +7,9 @@ import { Badge } from '@/components/ui/badge';
 
 import { Coins } from 'lucide-react';
 import { Challenge } from './challenge.client';
+import { AuthGuard } from '@/components/auth-guard';
+import { AuthModal } from '@/components/auth-modal';
+import { Button } from '@/components/ui/button';
 
 interface OpenedBattlesProps {
   preloadedBattles: Preloaded<typeof api.battles.getOpenBattles>;
@@ -39,10 +42,17 @@ export function OpenedBattles({
                 </Badge>
                 <div className='flex gap-2 justify-between'>
                   <Badge variant={'default'}>{battle.creator.email}</Badge>
-                  <Challenge
-                    battle={battle}
-                    disabled={battle.creator._id === currentUser?._id}
-                  />
+                  <AuthGuard
+                    isAuthenticated={!!currentUser}
+                    fallback={
+                      <AuthModal trigger={<Button>Challenge!</Button>} />
+                    }
+                  >
+                    <Challenge
+                      battle={battle}
+                      disabled={battle.creator._id === currentUser?._id}
+                    />
+                  </AuthGuard>
                 </div>
               </div>
               <Image

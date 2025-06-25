@@ -51,9 +51,9 @@ export function Challenge({ battle, disabled = false }: ChallengeModalProps) {
       <DialogContent className='sm:max-w-[425px]'>
         <form onSubmit={handleChallenge}>
           <DialogHeader>
-            <DialogTitle>Challenge {battle.createdBy}</DialogTitle>
+            <DialogTitle>Challenge {battle.creator.email}</DialogTitle>
             <DialogDescription>
-              You are about to challenge {battle.createdBy} to a battle of{' '}
+              You are about to challenge {battle.creator.email} to a battle of{' '}
               {battle.amount} coins.
             </DialogDescription>
           </DialogHeader>
