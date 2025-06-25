@@ -1,7 +1,8 @@
 import { v } from 'convex/values';
-import { mutation, query } from './_generated/server';
+import { internalMutation, mutation, query } from './_generated/server';
 import { getAuthUserId } from '@convex-dev/auth/server';
 import { Id } from './_generated/dataModel';
+import { internal } from './_generated/api';
 
 export const getOpenBattles = query({
   args: {},
@@ -19,9 +20,14 @@ export const getOpenBattles = query({
           throw new Error('User not found');
         }
 
+        const joiner = battle.joinerId
+          ? await ctx.db.get(battle.joinerId)
+          : null;
+
         return {
           ...battle,
           creator: user,
+          joiner: joiner,
         };
       })
     );
@@ -71,29 +77,6 @@ export const getFinishedBattles = query({
   },
 });
 
-export const getUserBattles = query({
-  args: {},
-
-  handler: async ctx => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) {
-      throw new Error('Not authenticated');
-    }
-
-    const createdBattles = await ctx.db
-      .query('battles')
-      .withIndex('by_createdBy', q => q.eq('createdBy', userId))
-      .collect();
-
-    const joinedBattles = await ctx.db
-      .query('battles')
-      .withIndex('by_joinerId', q => q.eq('joinerId', userId))
-      .collect();
-
-    return [...createdBattles, ...joinedBattles];
-  },
-});
-
 export const createBattle = mutation({
   args: {
     amount: v.number(),
@@ -135,37 +118,55 @@ export const joinBattle = mutation({
       throw new Error('Battle not found');
     }
 
-    const creator = await ctx.db.get(battle.createdBy);
-    if (!creator) {
-      throw new Error('Creator not found');
+    await ctx.db.patch(args.battleId, {
+      joinerId: userId,
+      moveJoiner: args.move,
+    });
+
+    await ctx.scheduler.runAfter(3000, internal.battles.defineWinner, {
+      battleId: args.battleId,
+    });
+
+    return battle;
+  },
+});
+
+export const defineWinner = internalMutation({
+  args: {
+    battleId: v.id('battles'),
+  },
+  handler: async (ctx, args) => {
+    const battle = await ctx.db.get(args.battleId);
+
+    if (!battle) {
+      throw new Error('Battle not found');
     }
 
-    if (creator._id === userId) {
-      throw new Error('You cannot join your own battle');
+    if (!battle.joinerId) {
+      throw new Error('Joiner not found');
     }
 
     let winnerId: Id<'users'> | null = null;
 
-    if (battle.moveCreator === 'rock' && args.move === 'scissors') {
-      winnerId = creator._id;
-    } else if (battle.moveCreator === 'paper' && args.move === 'rock') {
-      winnerId = creator._id;
-    } else if (battle.moveCreator === 'scissors' && args.move === 'paper') {
-      winnerId = creator._id;
-    } else if (battle.moveCreator === args.move) {
+    if (battle.moveCreator === 'rock' && battle.moveJoiner === 'scissors') {
+      winnerId = battle.createdBy;
+    } else if (battle.moveCreator === 'paper' && battle.moveJoiner === 'rock') {
+      winnerId = battle.createdBy;
+    } else if (
+      battle.moveCreator === 'scissors' &&
+      battle.moveJoiner === 'paper'
+    ) {
+      winnerId = battle.createdBy;
+    } else if (battle.moveCreator === battle.moveJoiner) {
       winnerId = null;
     } else {
-      winnerId = userId;
+      winnerId = battle.joinerId;
     }
 
     await ctx.db.patch(args.battleId, {
-      joinerId: userId,
-      moveJoiner: args.move,
+      winnerId,
       resolved: true,
       resolvedAt: Date.now(),
-      winnerId,
     });
-
-    return battle;
   },
 });

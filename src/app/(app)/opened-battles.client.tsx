@@ -42,17 +42,21 @@ export function OpenedBattles({
                 </Badge>
                 <div className='flex gap-2 justify-between'>
                   <Badge variant={'default'}>{battle.creator.email}</Badge>
-                  <AuthGuard
-                    isAuthenticated={!!currentUser}
-                    fallback={
-                      <AuthModal trigger={<Button>Challenge!</Button>} />
-                    }
-                  >
-                    <Challenge
-                      battle={battle}
-                      disabled={battle.creator._id === currentUser?._id}
-                    />
-                  </AuthGuard>
+                  {battle.joiner ? (
+                    <Badge variant={'default'}>{battle.joiner.email}</Badge>
+                  ) : (
+                    <AuthGuard
+                      isAuthenticated={!!currentUser}
+                      fallback={
+                        <AuthModal trigger={<Button>Challenge!</Button>} />
+                      }
+                    >
+                      <Challenge
+                        battle={battle}
+                        disabled={battle.creator._id === currentUser?._id}
+                      />
+                    </AuthGuard>
+                  )}
                 </div>
               </div>
               <Image
