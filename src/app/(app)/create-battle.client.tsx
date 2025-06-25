@@ -94,10 +94,6 @@ export function CreateBattle() {
         </div>
         <DialogFooter className='sm:justify-start'>
           <div className='flex flex-col gap-2 w-full'>
-            <span className='text-sm text-muted-foreground'>
-              Your balance: 1000
-            </span>
-
             <Button
               type='button'
               className='w-full'
