@@ -31,9 +31,9 @@ export default defineSchema({
       v.union(v.literal('rock'), v.literal('paper'), v.literal('scissors'))
     ),
     joinerId: v.optional(v.id('users')),
-    gifId: v.string(),
+    gifUrl: v.optional(v.string()),
     resolved: v.boolean(),
-    winnerId: v.optional(v.id('users')),
+    winnerId: v.optional(v.union(v.id('users'), v.null())),
     resolvedAt: v.optional(v.number()),
   })
     .index('by_createdBy', ['createdBy'])

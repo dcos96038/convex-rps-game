@@ -14,6 +14,8 @@ import type {
   FunctionReference,
 } from "convex/server";
 import type * as auth from "../auth.js";
+import type * as battles from "../battles.js";
+import type * as giphy from "../giphy.js";
 import type * as http from "../http.js";
 
 /**
@@ -26,6 +28,8 @@ import type * as http from "../http.js";
  */
 declare const fullApi: ApiFromModules<{
   auth: typeof auth;
+  battles: typeof battles;
+  giphy: typeof giphy;
   http: typeof http;
 }>;
 export declare const api: FilterApi<
