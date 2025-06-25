@@ -135,12 +135,27 @@ export const joinBattle = mutation({
       throw new Error('Battle not found');
     }
 
+    const creator = await ctx.db.get(battle.createdBy);
+    if (!creator) {
+      throw new Error('Creator not found');
+    }
+
+    if (creator._id === userId) {
+      throw new Error('You cannot join your own battle');
+    }
+
     let winnerId: Id<'users'> | null = null;
+
     if (battle.moveCreator === 'rock' && args.move === 'scissors') {
-      winnerId = userId;
+      winnerId = creator._id;
     } else if (battle.moveCreator === 'paper' && args.move === 'rock') {
-      winnerId = userId;
+      winnerId = creator._id;
     } else if (battle.moveCreator === 'scissors' && args.move === 'paper') {
+      winnerId = creator._id;
+    } else if (battle.moveCreator === args.move) {
+      winnerId = null;
+    } else {
+      winnerId = userId;
     }
 
     await ctx.db.patch(args.battleId, {
@@ -148,7 +163,7 @@ export const joinBattle = mutation({
       moveJoiner: args.move,
       resolved: true,
       resolvedAt: Date.now(),
-      winnerId: winnerId,
+      winnerId,
     });
 
     return battle;
