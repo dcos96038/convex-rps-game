@@ -3,7 +3,7 @@ import { internalMutation, mutation, query } from './_generated/server';
 import { getAuthUserId } from '@convex-dev/auth/server';
 import { Id } from './_generated/dataModel';
 import { internal } from './_generated/api';
-import { userBalanceAggregate } from './aggregates';
+import { battleAggregate, userBalanceAggregate } from './aggregates';
 
 export const getOpenBattles = query({
   args: {},
@@ -114,6 +114,14 @@ export const createBattle = mutation({
       battleId,
     });
 
+    const battle = await ctx.db.get(battleId);
+
+    if (!battle) {
+      throw new Error('Battle not found');
+    }
+
+    await battleAggregate.insert(ctx, battle);
+
     return battleId;
   },
 });
@@ -168,44 +176,50 @@ export const defineWinner = internalMutation({
     battleId: v.id('battles'),
   },
   handler: async (ctx, args) => {
-    const battle = await ctx.db.get(args.battleId);
+    const oldBattle = await ctx.db.get(args.battleId);
 
-    if (!battle) {
+    if (!oldBattle) {
       throw new Error('Battle not found');
     }
 
-    if (!battle.joinerId) {
+    if (!oldBattle.joinerId) {
       throw new Error('Joiner not found');
     }
 
     let winnerId: Id<'users'> | null = null;
 
-    if (battle.moveCreator === 'rock' && battle.moveJoiner === 'scissors') {
-      winnerId = battle.createdBy;
-    } else if (battle.moveCreator === 'paper' && battle.moveJoiner === 'rock') {
-      winnerId = battle.createdBy;
-    } else if (
-      battle.moveCreator === 'scissors' &&
-      battle.moveJoiner === 'paper'
+    if (
+      oldBattle.moveCreator === 'rock' &&
+      oldBattle.moveJoiner === 'scissors'
     ) {
-      winnerId = battle.createdBy;
-    } else if (battle.moveCreator === battle.moveJoiner) {
+      winnerId = oldBattle.createdBy;
+    } else if (
+      oldBattle.moveCreator === 'paper' &&
+      oldBattle.moveJoiner === 'rock'
+    ) {
+      winnerId = oldBattle.createdBy;
+    } else if (
+      oldBattle.moveCreator === 'scissors' &&
+      oldBattle.moveJoiner === 'paper'
+    ) {
+      winnerId = oldBattle.createdBy;
+    } else if (oldBattle.moveCreator === oldBattle.moveJoiner) {
       winnerId = null;
     } else {
-      winnerId = battle.joinerId;
+      winnerId = oldBattle.joinerId;
     }
 
-    if (winnerId === battle.createdBy) {
+    if (winnerId === oldBattle.createdBy) {
       await ctx.runMutation(internal.tokenTransactions.createTransaction, {
-        userId: battle.createdBy,
-        amount: battle.amount * 2,
+        userId: oldBattle.createdBy,
+        amount: oldBattle.amount * 2,
         type: 'income',
         battleId: args.battleId,
       });
-    } else if (winnerId === battle.joinerId) {
+    } else if (winnerId === oldBattle.joinerId) {
       await ctx.runMutation(internal.tokenTransactions.createTransaction, {
-        userId: battle.joinerId,
-        amount: battle.amount * 2,
+        userId: oldBattle.joinerId,
+        amount: oldBattle.amount * 2,
         type: 'income',
         battleId: args.battleId,
       });
@@ -216,5 +230,35 @@ export const defineWinner = internalMutation({
       resolved: true,
       resolvedAt: Date.now(),
     });
+
+    const newBattle = await ctx.db.get(args.battleId);
+
+    if (!newBattle) {
+      throw new Error('Battle not found');
+    }
+
+    await battleAggregate.replace(ctx, oldBattle, newBattle);
+  },
+});
+
+export const getBattleMetrics = query({
+  args: {},
+  handler: async ctx => {
+    const finishedBattles = await battleAggregate.count(ctx, {
+      bounds: {
+        prefix: ['resolved_with_winner'],
+      },
+    });
+
+    const totalTokensEarned = await battleAggregate.sum(ctx, {
+      bounds: {
+        prefix: ['resolved_with_winner'],
+      },
+    });
+
+    return {
+      finishedBattles,
+      totalTokensEarned,
+    };
   },
 });
