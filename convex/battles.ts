@@ -123,7 +123,7 @@ export const joinBattle = mutation({
       moveJoiner: args.move,
     });
 
-    await ctx.scheduler.runAfter(3000, internal.battles.defineWinner, {
+    await ctx.scheduler.runAfter(5000, internal.battles.defineWinner, {
       battleId: args.battleId,
     });
 
